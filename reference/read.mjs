@@ -36,6 +36,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDocument } from "./validate.mjs";
+import { validatePair } from "./validate-pair.mjs";
 
 const MAX_BYTES = 65_536;
 const MAX_REDIRECTS = 3;
@@ -297,7 +298,7 @@ function stringList(value, label) {
   return value;
 }
 
-function normalize(origin, ai, agents, context, localPolicy, action) {
+function normalize(origin, ai, agents, context, localPolicy, action, strictPair) {
   const list = (value, label) => stringList(value, `localPolicy.${label}`);
   const local = ownObject(localPolicy) ? localPolicy : null;
   if (!local) throw new ReadFailure("invalid", "localPolicy must be an object.");
@@ -320,6 +321,9 @@ function normalize(origin, ai, agents, context, localPolicy, action) {
     ...(ai.settings_actions || []).map((entry) => ({ ...entry, kind: "settings" })),
     ...(ai.out_of_settings_actions || []).map((entry) => ({ ...entry, kind: "out_of_settings" })),
   ];
+  if (strictPair && ai.policy?.allow_autonomous_execution === false) {
+    confirmation.push(...actions.map((entry) => entry.id));
+  }
   // False flags on descriptive actions never remove a stronger merged rule.
   for (const entry of actions) {
     if (confirmation.some((rule) => [entry.id, entry.path, entry.data_agent_action].includes(rule))) {
@@ -370,6 +374,10 @@ export async function readOrigin(origin, options = {}) {
     };
     const card = await fetchFile(pointer(ai.discovery?.actions, "/.well-known/agents.json"), discoveryPolicy, fetched, timeoutMs);
     const agents = parseDocument(card.text, "agents", options.strict === true, warnings);
+    if (options.strictPair === true) {
+      const pair = validatePair(agents, ai);
+      if (!pair.valid) throw new ReadFailure("invalid", `AAA strict pair: ${pair.errors.join("; ")}`);
+    }
     let context = null;
     try {
       const file = await fetchFile(pointer(ai.discovery?.context, "/.well-known/llms.txt"), discoveryPolicy, fetched, timeoutMs);
@@ -378,7 +386,8 @@ export async function readOrigin(origin, options = {}) {
       if (ai.discovery?.context !== undefined || !(error instanceof ReadFailure) || error.outcome !== "missing") throw error;
       warnings.push(`Optional default llms.txt missing: ${error.message}`);
     }
-    const map = normalize(canonicalOrigin, ai, agents, context, options.localPolicy ?? {}, options.action);
+    const map = normalize(canonicalOrigin, ai, agents, context, options.localPolicy ?? {}, options.action,
+      options.strictPair === true);
     return { outcome: map.action_root === "none" ? "settings_profile" : "ok", map, warnings, fetched };
   } catch (error) {
     warnings.push(error.message);
@@ -386,7 +395,7 @@ export async function readOrigin(origin, options = {}) {
   }
 }
 
-const USAGE = "usage: node reference/read.mjs <origin> [--strict] [--action <id>] [--json] [--allow-http-local]";
+const USAGE = "usage: node reference/read.mjs <origin> [--strict] [--strict-pair] [--action <id>] [--json] [--allow-http-local]";
 async function main(args) {
   let origin;
   let json = false;
@@ -394,6 +403,7 @@ async function main(args) {
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === "--strict") options.strict = true;
+    else if (arg === "--strict-pair") options.strictPair = true;
     else if (arg === "--json") json = true;
     else if (arg === "--allow-http-local") options.allowHttpLocal = true;
     else if (arg === "--action" && args[index + 1] && !args[index + 1].startsWith("--")) options.action = args[++index];
