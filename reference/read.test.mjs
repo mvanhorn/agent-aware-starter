@@ -456,3 +456,23 @@ test("duplicate declared action IDs are invalid when selected instead of silentl
   noMap(result, "invalid");
   assert.match(result.warnings.join(" "), /ambiguous/);
 });
+
+test("strict pair rejects legacy paths and accepts a coherent action map", async (t) => {
+  const legacy = await fixture(t);
+  noMap(await localRead(legacy.origin, { strictPair: true }), "invalid");
+  const agents = baseAgents();
+  agents.endpoints[0].path = "/api/actions/status";
+  const f = await fixture(t, { [CARD_PATH]: agents });
+  assert.equal((await localRead(f.origin, { strictPair: true })).outcome, "ok");
+});
+
+test("strict pair applies false autonomy hint as confirmation for each declared action", async (t) => {
+  const agents = baseAgents();
+  agents.endpoints[0].path = "/api/actions/status";
+  const ai = { ...baseAi(), policy: { allow_autonomous_execution: false } };
+  const f = await fixture(t, { [AI_PATH]: ai, [CARD_PATH]: agents });
+  const result = await localRead(f.origin, { strictPair: true, action: "status" });
+  assert.equal(result.outcome, "ok");
+  assert.equal(result.map.selected_action.requires_human_confirmation, true);
+  assert.ok(result.map.restrictions.require_human_confirmation.includes("status"));
+});
