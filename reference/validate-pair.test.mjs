@@ -53,3 +53,32 @@ test("false autonomy hint and named rules tighten confirmation", () => {
   assert.equal(confirmationRequired(action, ai), true);
   assert.equal(confirmationRequired(action, ai, true), true);
 });
+
+test("absolute HTTPS action roots accept contained path-only and same-origin endpoints", () => {
+  for (const root of ["https://example.com/api/actions", "https://example.com/api/actions/"]) {
+    for (const path of ["/api/actions", "/api/actions/status", "https://example.com/api/actions/status"]) {
+      const [agents, ai] = site();
+      agents.agent_card.endpoints.action_root = root;
+      agents.endpoints = [{ ...agents.endpoints[0], path }];
+      assert.deepEqual(validatePair(agents, ai), { valid: true, errors: [] }, `${root} -> ${path}`);
+    }
+  }
+});
+
+test("absolute action roots retain origin, segment, and canonical-path rejection", () => {
+  for (const path of [
+    "https://external.example/api/actions/status", "https://example.com:444/api/actions/status",
+    "http://example.com/api/actions/status", "//external.example/api/actions/status",
+    "/api/actions-other/status", "/api/status", "/api/actions/../status", "/api/actions/./status",
+    "/api/actions/%2e%2e/status", "/api/actions/%2fstatus", "/api/actions\\status",
+    "/api/actions//status", "/api/actions/status?next=admin", "/api/actions/status#admin", "api/actions/status",
+  ]) {
+    const [agents, ai] = site();
+    agents.agent_card.endpoints.action_root = "https://example.com/api/actions";
+    agents.endpoints = [{ ...agents.endpoints[0], path }];
+    assert.equal(validatePair(agents, ai).valid, false, path);
+  }
+  const [agents, ai] = site();
+  agents.endpoints[0].path = `https://external.example${agents.endpoints[0].path}`;
+  assert.equal(validatePair(agents, ai).valid, false, "path-only root cannot establish an absolute endpoint's origin");
+});

@@ -476,3 +476,44 @@ test("strict pair applies false autonomy hint as confirmation for each declared 
   assert.equal(result.map.selected_action.requires_human_confirmation, true);
   assert.ok(result.map.restrictions.require_human_confirmation.includes("status"));
 });
+
+test("strict false autonomy unions confirmation IDs across local, publisher, and action rules", async (t) => {
+  const agents = baseAgents();
+  agents.endpoints[0].path = "/api/actions/status";
+  agents.endpoints.push({ name: "submit", path: "/api/actions/submit", method: "POST" });
+  const ai = { ...baseAi(),
+    policy: { allow_autonomous_execution: false, require_human_approval_for: ["status"] },
+    safety: { require_human_confirmation_for: ["status", "settings"] },
+    settings_actions: [{ id: "settings", href: "app://settings?id=settings" }],
+    out_of_settings_actions: [{ id: "handoff", how_to: "Ask a human", requires_human_confirmation: true }],
+  };
+  const localPolicy = { require_human_confirmation: ["local-only", "status", "status"] };
+  const f = await fixture(t, { [AI_PATH]: ai, [CARD_PATH]: agents });
+  const result = await localRead(f.origin, { strictPair: true, localPolicy });
+  assert.equal(result.outcome, "ok");
+  assert.deepEqual(result.map.restrictions.require_human_confirmation,
+    ["local-only", "status", "settings", "handoff", "submit"]);
+  assert.ok(result.map.actions.every((entry) => entry.requires_human_confirmation === true));
+  assert.equal(result.map.grants_authority, false);
+  assert.deepEqual(localPolicy.require_human_confirmation, ["local-only", "status", "status"]);
+});
+
+test("true or absent autonomy hints preserve stronger restrictions without adding unrelated IDs", async (t) => {
+  for (const autonomy of [true, undefined]) {
+    const agents = baseAgents();
+    agents.endpoints[0].path = "/api/actions/status";
+    agents.endpoints.push({ name: "submit", path: "/api/actions/submit", method: "POST" });
+    const ai = { ...baseAi(), policy: { require_human_approval_for: ["status"] },
+      out_of_settings_actions: [{ id: "handoff", how_to: "Ask a human", requires_human_confirmation: false }] };
+    if (autonomy !== undefined) ai.policy.allow_autonomous_execution = autonomy;
+    const f = await fixture(t, { [AI_PATH]: ai, [CARD_PATH]: agents });
+    const result = await localRead(f.origin, { strictPair: true,
+      localPolicy: { require_human_confirmation: ["local-only", "handoff", "status"] } });
+    assert.equal(result.outcome, "ok");
+    assert.deepEqual(result.map.restrictions.require_human_confirmation, ["local-only", "handoff", "status"]);
+    assert.equal(result.map.actions.find((entry) => entry.id === "handoff").requires_human_confirmation, true);
+    assert.equal(result.map.actions.find((entry) => entry.id === "status").requires_human_confirmation, true);
+    assert.notEqual(result.map.actions.find((entry) => entry.id === "submit").requires_human_confirmation, true);
+    assert.equal(result.map.grants_authority, false);
+  }
+});

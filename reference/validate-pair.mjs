@@ -22,7 +22,9 @@ function actionSurface(value) {
 function underRoot(root, path) {
   const a = actionSurface(root);
   const b = actionSurface(path);
-  if (!a || !b || a.origin !== b.origin) return false;
+  if (!a || !b) return false;
+  // A validated path-only endpoint inherits an absolute root's origin.
+  if (a.origin !== (b.origin ?? a.origin)) return false;
   return a.path === "/" || b.path === a.path || b.path.startsWith(`${a.path}/`);
 }
 

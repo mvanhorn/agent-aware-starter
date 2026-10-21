@@ -304,7 +304,7 @@ function normalize(origin, ai, agents, context, localPolicy, action, strictPair)
   if (!local) throw new ReadFailure("invalid", "localPolicy must be an object.");
   const deny = unique(list(local.deny, "deny"), list(local.prohibit_direct_input_to, "prohibit_direct_input_to"),
     list(local.safety?.prohibit_direct_input_to, "safety.prohibit_direct_input_to"), ai.safety?.prohibit_direct_input_to || []);
-  const confirmation = unique(
+  let confirmation = unique(
     list(local.require_human_confirmation, "require_human_confirmation"),
     list(local.require_human_confirmation_for, "require_human_confirmation_for"),
     list(local.require_human_approval_for, "require_human_approval_for"),
@@ -322,7 +322,7 @@ function normalize(origin, ai, agents, context, localPolicy, action, strictPair)
     ...(ai.out_of_settings_actions || []).map((entry) => ({ ...entry, kind: "out_of_settings" })),
   ];
   if (strictPair && ai.policy?.allow_autonomous_execution === false) {
-    confirmation.push(...actions.map((entry) => entry.id));
+    confirmation = unique(confirmation, actions.map((entry) => entry.id));
   }
   // False flags on descriptive actions never remove a stronger merged rule.
   for (const entry of actions) {
