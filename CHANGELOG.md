@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an opt-in strict pair profile for 0.2 documents: cross-document state and mode agreement, unique action IDs, canonical action-root containment, Settings anchor agreement, and false-autonomy confirmation tightening. Aligned the synthetic site fixture's endpoint paths with its declared root. The default reader and schemas retain their 0.2 compatibility behavior.
+- Pinned the byte-frozen 0.1 schema checkout files to LF so their SHA-256 identity checks work on Windows.
 - Added `reference/conform.mjs`, a dependency-free runner that checks a
   served origin for strict schema validity, well-known content types, and
   the spec 02 live-publication rules. `--serve <dir>` hosts a fixture

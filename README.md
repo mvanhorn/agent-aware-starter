@@ -66,9 +66,12 @@ CI runs the tests and validates every JSON file under `examples/` on pushes and 
 node reference/read.mjs https://example.com
 node reference/read.mjs https://example.com --strict --json
 node reference/read.mjs https://example.com --action get_status --json
+node reference/read.mjs https://example.com --strict-pair --json
 ```
 
 The [reader](reference/read.mjs) follows `ai-instructions.json` → `agents.json` → `llms.txt`, using the [bounded public-HTTPS fetch policy](spec/01-handshake.md#fetching-the-files). It reports a map and warnings; it does not execute actions. Unknown fields warn and are ignored by default. `--strict` makes every schema error invalid. The library exports `readOrigin(origin, options)`; the validator exports `validateDocument(doc, kind)` using the same strict engine as its CLI.
+
+`--strict-pair` opts into [cross-document validation](reference/validate-pair.mjs): matching live/status and HTTP mode, unique action IDs, canonical endpoint paths under `action_root`, and Settings actions bound to documented anchors. In this mode, `allow_autonomous_execution: false` adds human confirmation for every declared action. Both shipped document pairs pass this optional check. Individual 0.2 schemas and the default reader retain their additive compatibility contract.
 
 Outcomes are `ok`, `missing`, `invalid`, `fetch_refused`, `unknown_action`, or `settings_profile`. Exit 0 means `ok` or `settings_profile`; exit 1 means no usable requested map; exit 2 means usage error. An unknown action is never guessed. `action_root: "none"` never becomes an invented HTTP API. Permissive flags are advisory, and restrictive lists only tighten the consumer's existing policy.
 

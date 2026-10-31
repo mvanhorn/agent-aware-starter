@@ -17,14 +17,14 @@
     {
       "name": "get_status",
       "description": "Returns service health.",
-      "path": "/api/v1/status",
+      "path": "/api/v1/agent-actions/status",
       "method": "GET",
       "risk_level": "low"
     },
     {
       "name": "submit_task",
       "description": "Queues an asynchronous task.",
-      "path": "/api/v1/agent/task",
+      "path": "/api/v1/agent-actions/task",
       "method": "POST",
       "risk_level": "medium",
       "parameters": {

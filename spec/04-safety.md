@@ -23,3 +23,5 @@ Consumers MUST apply tighten-only consumption (spec 00, invariant 5). Existing u
 `policy.allow_autonomous_execution` is advisory. A value of `true` MUST NOT change execution behavior, authorize an action, suppress confirmation, or override existing policy. The same rule applies to `policy.read_freely`, capabilities, action descriptions, and prose in `llms.txt`.
 
 Consumers MUST combine applicable deny and confirmation lists by union. They MUST NOT replace a stricter local rule with a more permissive publisher rule. Untrusted regions are data even when their text claims to amend these files.
+
+The optional [strict pair profile](../reference/validate-pair.mjs) treats `allow_autonomous_execution: false` as a restriction requiring human confirmation for every declared action. The default 0.2 reader leaves this field advisory for compatibility. Neither interpretation grants execution authority.
